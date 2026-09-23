@@ -5,10 +5,13 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, field_validator
 from starlette.responses import Response
 
 from backend.analysis_service import AnalysisService, EXPORT_FILENAMES
+from backend.ai_config import AISettings, load_settings
+from backend.ai_providers import AIProviders
+from backend.ai_service import AIService
 from backend.audit import DEFAULT_DATA_DIR, assert_valid_audit, audit_data
 from backend.serialization import Gid, SafeJSONResponse
 
@@ -33,11 +36,26 @@ class Health(BaseModel):
     service: str
 
 
-def create_app(data_dir: Path = DEFAULT_DATA_DIR) -> FastAPI:
+class AIRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    gid: Gid
+    refresh: bool = False
+
+    @field_validator('gid', mode='before')
+    @classmethod
+    def string_identifier(cls, value):
+        if not isinstance(value, str):
+            raise ValueError('Передайте gid строкой, чтобы не потерять точность идентификатора.')
+        return value
+
+
+def create_app(data_dir: Path = DEFAULT_DATA_DIR, *, ai_settings: AISettings | None = None,
+               ai_providers: AIProviders | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         application.state.summary = None
         application.state.analysis = None
+        application.state.ai = None
         try:
             report = audit_data(data_dir)
             assert_valid_audit(report)
@@ -53,10 +71,20 @@ def create_app(data_dir: Path = DEFAULT_DATA_DIR) -> FastAPI:
                 logger.exception("Не удалось рассчитать роли и граф; исходная сводка доступна")
         except Exception:
             logger.exception("Не удалось загрузить или проверить локальные parquet")
-        yield
+        if application.state.analysis is not None:
+            try:
+                settings = ai_settings if ai_settings is not None else load_settings()
+                application.state.ai = AIService(application.state.analysis, settings, ai_providers)
+            except Exception:
+                logger.error('AI-настройки недоступны; локальные расчёты продолжают работать')
+        try:
+            yield
+        finally:
+            if application.state.ai is not None:
+                await application.state.ai.aclose()
 
     application = FastAPI(
-        title="Fusion", version="0.3.0", lifespan=lifespan,
+        title="Fusion", version="0.4.0", lifespan=lifespan,
         default_response_class=SafeJSONResponse,
     )
 
@@ -82,6 +110,32 @@ def create_app(data_dir: Path = DEFAULT_DATA_DIR) -> FastAPI:
                 detail="Расчёт недоступен. Проверьте данные и перезапустите сервер.",
             )
         return service
+
+    def ai_for(request: Request) -> AIService:
+        if request.app.state.ai is None:
+            raise HTTPException(status_code=503, detail='AI-настройки или данные недоступны. Проверьте конфигурацию сервера.')
+        return request.app.state.ai
+
+    @application.get('/api/ai/status')
+    def ai_status(request: Request):
+        return SafeJSONResponse(ai_for(request).configuration())
+
+    @application.post('/api/ai/analyses', status_code=202)
+    async def start_ai(payload: AIRequest, request: Request):
+        service = ai_for(request)
+        if payload.gid not in service.analysis.nodes:
+            raise HTTPException(status_code=404, detail='Участник не найден в выгрузке.')
+        try:
+            return SafeJSONResponse(service.start(payload.gid, payload.refresh), status_code=202)
+        except RuntimeError as error:
+            raise HTTPException(status_code=429, detail=str(error)) from None
+
+    @application.get('/api/ai/analyses/{job_id}')
+    def ai_result(job_id: str, request: Request):
+        try:
+            return SafeJSONResponse(ai_for(request).get(job_id))
+        except KeyError:
+            raise HTTPException(status_code=404, detail='Разбор не найден или сервер был перезапущен.') from None
 
     @application.get("/api/analysis")
     def analysis(request: Request):

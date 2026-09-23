@@ -62,6 +62,8 @@ class AnalysisService:
             if _sha256(data_dir / f'{name}.parquet') != digest:
                 raise ValueError('Исходные данные изменились во время расчёта API')
 
+        self.input_hashes = dict(audit['hashes'])
+
         self.nodes = {row['gid']: row for row in frame_records(roles)}
         self.ranked_ids = sorted(self.nodes, key=lambda gid: (-self.nodes[gid]['priority_score'], int(gid)))
         self.edges = frame_records(edges.sort_values(['src', 'dst'])[['src', 'dst', 'sum_kzt', 'n_tx']])

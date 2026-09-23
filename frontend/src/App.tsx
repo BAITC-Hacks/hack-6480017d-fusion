@@ -4,6 +4,7 @@ import {
   type Analysis, type Gid, type GraphData, type GraphScope, type NodeDetail, type Role,
 } from './api';
 import NetworkGraph from './NetworkGraph';
+import AiPanel from './AiPanel';
 import { clusterColor, count, money, roleInfo, score, shortGid } from './presentation';
 
 type Focus = { gid: Gid; showNeighbors: boolean; attempt: number };
@@ -233,6 +234,7 @@ export default function App() {
             {detail && <>
               <div className="identity"><span className="eyebrow">ID участника</span><strong>{detail.gid}</strong><RoleBadge role={detail.role} /></div>
               <div className="tags"><span>Кластер {detail.cluster_id}</span><span>Глубина {detail.depth}</span>{detail.is_seed && <span>Исходный узел · seed</span>}{detail.truncated_by_depth && <span>Граница выгрузки</span>}{detail.is_isolated && <span>Нет связей</span>}</div>
+              <AiPanel key={detail.gid} gid={detail.gid} />
               <div className="scores">
                 <div><span>Приоритет проверки</span><strong>{score(detail.priority_score)}</strong><div className="score-track"><i style={{ width: `${detail.priority_score * 100}%` }} /></div></div>
                 <div><span>Поддержка гипотезы роли</span><strong>{score(detail.role_score)}</strong><div className="score-track"><i style={{ width: `${detail.role_score * 100}%` }} /></div></div>
