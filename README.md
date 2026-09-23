@@ -36,6 +36,8 @@ npm --prefix frontend ci
 
 ## Запуск
 
+Короткая инструкция, локальный `.env` и план оставшихся двух часов — [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md).
+
 Терминал 1:
 
 ```bash
