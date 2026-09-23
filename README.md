@@ -81,8 +81,17 @@ data/
 ```
 
 ### 3. Рассчитать результаты и запустить приложение
+# macOS / Linux
+source .venv/bin/activate
+
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+
+:: Windows CMD
+.venv\Scripts\activate.bat
 
 ```bash
+
 .venv/bin/python -m backend.pipeline
 .venv/bin/python scripts/run_local.py
 ```
