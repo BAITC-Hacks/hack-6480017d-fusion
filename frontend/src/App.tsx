@@ -5,6 +5,9 @@ import {
 } from './api';
 import NetworkGraph from './NetworkGraph';
 import AiPanel from './AiPanel';
+import NodeFlows from './NodeFlows';
+import PriorityExplanation from './PriorityExplanation';
+import ClusterSummary from './ClusterSummary';
 import { clusterColor, count, money, roleInfo, score, shortGid } from './presentation';
 
 type Focus = { gid: Gid; showNeighbors: boolean; attempt: number };
@@ -126,6 +129,7 @@ export default function App() {
   const detail = selected ? node : null;
   const currentCluster = scope && 'cluster_id' in scope
     ? analysis?.clusters.find(cluster => cluster.cluster_id === scope.cluster_id) : null;
+  const displayedCluster = currentCluster ?? (detail ? analysis?.clusters.find(cluster => cluster.cluster_id === detail.cluster_id) : null);
   const visibleClusters = graph ? [...new Set(graph.nodes.map(item => item.cluster_id))].sort((a, b) => a - b) : [];
 
   return <main className="app-shell">
@@ -218,29 +222,34 @@ export default function App() {
               {graph.truncated && <p className="limit-note">Представление сокращено до 250 участников по приоритету. CSV содержат полный результат.</p>}
               {graph.nodes.length === 1 && graph.edges.length === 0 && <p className="limit-note">В этой области нет наблюдаемых связей. Узел сохранён в результатах.</p>}
             </>}
-            {currentCluster && <p className="cluster-hypothesis">{currentCluster.hypothesis}</p>}
             {graph && <details className="accessible-nodes"><summary>Выбрать участника из списка ({count(graph.returned_nodes)})</summary><div>
               {graph.nodes.map(item => <button key={item.gid} onClick={() => selectNode(item.gid, false)} aria-pressed={selected === item.gid}>{item.gid} · {roleInfo[item.role].label}</button>)}
             </div></details>}
           </div>
+          {detail && <NodeFlows node={detail} onSelect={gid => selectNode(gid, true)} />}
+          {displayedCluster && <ClusterSummary cluster={displayedCluster} onSelect={gid => selectNode(gid, true)}
+            onShow={() => setScope({ cluster_id: displayedCluster.cluster_id })} showingCluster={Boolean(currentCluster)} />}
         </section>
 
         <aside className="panel detail" aria-labelledby="detail-title">
           <div className="panel-heading"><h2 id="detail-title">Карточка участника</h2></div>
-          <div className="detail-body" aria-live="polite" aria-busy={nodeLoading}>
+          <div className="detail-body" key={focus?.gid ?? 'empty'} aria-live="polite" aria-busy={nodeLoading}>
             {nodeLoading && <div className="loading-panel" role="status">Загружаем признаки участника…</div>}
             {nodeError && <div className="error-panel" role="alert"><p>{nodeError}</p><p className="small">Запрошен ID: {focus?.gid}</p><button onClick={() => setFocus(previous => previous ? { ...previous, attempt: previous.attempt + 1 } : null)}>Повторить карточку</button></div>}
             {!detail && !nodeLoading && !nodeError && <div className="empty-state">Нажмите на участника в графе или найдите его по ID.</div>}
             {detail && <>
               <div className="identity"><span className="eyebrow">ID участника</span><strong>{detail.gid}</strong><RoleBadge role={detail.role} /></div>
               <div className="tags"><span>Кластер {detail.cluster_id}</span><span>Глубина {detail.depth}</span>{detail.is_seed && <span>Исходный узел · seed</span>}{detail.truncated_by_depth && <span>Граница выгрузки</span>}{detail.is_isolated && <span>Нет связей</span>}</div>
-              <AiPanel key={detail.gid} gid={detail.gid} />
               <div className="scores">
-                <div><span>Приоритет проверки</span><strong>{score(detail.priority_score)}</strong><div className="score-track"><i style={{ width: `${detail.priority_score * 100}%` }} /></div></div>
-                <div><span>Поддержка гипотезы роли</span><strong>{score(detail.role_score)}</strong><div className="score-track"><i style={{ width: `${detail.role_score * 100}%` }} /></div></div>
+                <div><span>Аналитический приоритет</span><strong>{score(detail.priority_score)}</strong><div className="score-track"><i style={{ width: `${detail.priority_score * 100}%` }} /></div></div>
               </div>
-              <p className="muted small">Оба скора — эвристики, а не вероятность виновности.</p>
-              <section className="card-section"><h3>Почему эта роль</h3><p className="evidence">{detail.evidence}</p></section>
+              <p className="muted small">Порядок аналитической проверки, не вероятность нарушения.</p>
+              <PriorityExplanation node={detail} />
+              {detail.priority_rank <= 20 && detail.priority_score > 0 && <p className="analyst-recommendation">Кандидат для углублённой AML-проверки при текущей модели приоритизации.</p>}
+              <section className="card-section"><h3>Почему эта роль</h3><p className="evidence">{detail.evidence}</p>
+                <p className="role-strength">Выраженность признаков роли <strong>{score(detail.role_score)}</strong></p>
+                <p className="muted small">Поддержка выбранного правила, не вероятность. Значения разных ролей не калиброваны между собой.</p>
+              </section>
               <section className="card-section"><h3>Наблюдаемые потоки</h3><dl className="node-facts">
                 <div><dt>Получено</dt><dd>{money(detail.in_kzt)}</dd></div><div><dt>Отправлено</dt><dd>{money(detail.out_kzt)}</dd></div>
                 <div><dt>Плательщиков</dt><dd>{count(detail.in_deg)}</dd></div><div><dt>Получателей</dt><dd>{count(detail.out_deg)}</dd></div>
@@ -248,7 +257,8 @@ export default function App() {
                 <div><dt>Достижим от seed</dt><dd>{count(detail.seed_reach)}</dd></div><div><dt>PageRank</dt><dd>{detail.pagerank.toPrecision(4)}</dd></div>
                 <div><dt>Отправлено / получено</dt><dd>{detail.pass_through === null ? 'Не определено' : detail.pass_through.toFixed(3)}</dd></div>
               </dl><p className="muted small">{detail.ratio_usable ? 'Отношение отражает только наблюдаемые потоки, не полный баланс.' : 'Отношение out/in не используется для определения транзита и консолидации у этого узла.'}</p></section>
-              <section className="card-section"><h3>Ограничения наблюдения</h3><ul className="caveats">{detail.caveats.map(caveat => <li key={caveat}>{caveat}</li>)}</ul></section>
+              <details className="card-section observation-details"><summary>Все ограничения наблюдения</summary><ul className="caveats">{detail.caveats.map(caveat => <li key={caveat}>{caveat}</li>)}</ul></details>
+              <AiPanel key={detail.gid} gid={detail.gid} />
               <button className="primary full-width" onClick={() => setScope({ gid: detail.gid })}>Показать ближайшие связи</button>
             </>}
           </div>

@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from backend.analysis_config import ROLES
+from backend.analysis_config import PRIORITY_WEIGHTS, ROLES
 from backend.audit import _sha256
-from backend.pipeline import calculate
+from backend.pipeline import PRIORITY_NAMES, calculate
 from backend.serialization import to_json_safe
 
 EXPORT_FILENAMES = frozenset({'nodes_roles.csv', 'clusters.csv', 'top_nodes.csv'})
@@ -52,6 +52,14 @@ def caveats_for(node: dict) -> list[str]:
     return caveats
 
 
+def priority_why(node: dict) -> str:
+    """Use the same contribution names/order as CSV, separate from role evidence."""
+    contributions = sorted(PRIORITY_WEIGHTS, key=lambda name: (-node['priority_' + name], name))[:2]
+    parts = ', '.join(f'{PRIORITY_NAMES[name]}={node["priority_" + name]:.3f}' for name in contributions)
+    return (f"Приоритет {node['priority_score']:.3f}: основные слагаемые {parts}; "
+            f"множитель полноты {node['priority_factor']:.1f}.")
+
+
 class AnalysisService:
     def __init__(self, data_dir: Path, audit: dict):
         nodes = pd.read_parquet(data_dir / 'nodes.parquet')
@@ -66,14 +74,24 @@ class AnalysisService:
 
         self.nodes = {row['gid']: row for row in frame_records(roles)}
         self.ranked_ids = sorted(self.nodes, key=lambda gid: (-self.nodes[gid]['priority_score'], int(gid)))
+        self.priority_ranks = {gid: rank for rank, gid in enumerate(self.ranked_ids, start=1)}
         self.edges = frame_records(edges.sort_values(['src', 'dst'])[['src', 'dst', 'sum_kzt', 'n_tx']])
         self.cluster_ids: dict[int, set[str]] = {}
         self.neighbors = {gid: set() for gid in self.nodes}
+        self.incoming_edges: dict[str, list[dict]] = {gid: [] for gid in self.nodes}
+        self.outgoing_edges: dict[str, list[dict]] = {gid: [] for gid in self.nodes}
         for gid, row in self.nodes.items():
             self.cluster_ids.setdefault(row['cluster_id'], set()).add(gid)
         for edge in self.edges:
             self.neighbors[edge['src']].add(edge['dst'])
             self.neighbors[edge['dst']].add(edge['src'])
+            self.incoming_edges[edge['dst']].append(edge)
+            self.outgoing_edges[edge['src']].append(edge)
+        # Full directed flows are independent of the graph's display limit.
+        # A self-transfer correctly contributes to both incoming and outgoing.
+        for index in (self.incoming_edges, self.outgoing_edges):
+            for flows in index.values():
+                flows.sort(key=lambda edge: (-edge['sum_kzt'], int(edge['src']), int(edge['dst'])))
 
         cluster_records = frame_records(clusters)
         for row in cluster_records:
@@ -98,7 +116,15 @@ class AnalysisService:
 
     def node(self, gid: str) -> dict:
         row = self.nodes[gid]
-        return {**row, 'caveats': caveats_for(row)}
+        return {
+            **row, 'caveats': caveats_for(row),
+            'priority_rank': self.priority_ranks[gid],
+            'priority_total': len(self.ranked_ids),
+            'priority_base': math.fsum(row['priority_' + name] for name in PRIORITY_WEIGHTS),
+            'priority_why': priority_why(row),
+            'incoming_edges': [dict(edge) for edge in self.incoming_edges[gid]],
+            'outgoing_edges': [dict(edge) for edge in self.outgoing_edges[gid]],
+        }
 
     def graph(self, cluster_id: int | None = None, gid: str | None = None, limit: int = 250) -> dict:
         if gid is not None:

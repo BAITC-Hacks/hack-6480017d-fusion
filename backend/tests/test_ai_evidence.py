@@ -2,30 +2,34 @@
 import copy
 import json
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
 
 from backend.ai_evidence import build_evidence, local_fallback
 from backend.ai_models import AnalystReport, ReviewerReport, validate_analyst, validate_reviewer
-from backend.analysis_service import AnalysisService, frame_records
-from backend.pipeline import calculate
+from backend.analysis_service import AnalysisService
 
 
 BASE_ID = 9007199254740993
 
 
 def make_service(nodes, edges):
-    """Real calculation, with only disk loading omitted from this fixture."""
+    """Initialize the real service; replace only parquet loading and file hashes."""
     node_frame = pd.DataFrame(nodes, columns=['gid', 'depth', 'is_seed'])
     edge_frame = pd.DataFrame(edges, columns=['src', 'dst', 'sum_kzt', 'n_tx'])
-    roles, _, _, _ = calculate(node_frame, edge_frame)
-    service = AnalysisService.__new__(AnalysisService)
-    service.nodes = {row['gid']: row for row in frame_records(roles)}
-    service.edges = frame_records(edge_frame)
-    service.summary = {'period': {'start': '2026-07-01', 'end': '2026-07-31'}}
-    service.input_hashes = {'nodes': 'n', 'edges': 'e', 'transactions': 't'}
-    return service
+    hashes = {'nodes': 'n', 'edges': 'e', 'transactions': 't'}
+    audit = {
+        'hashes': hashes,
+        'summary': {'period': {'start': '2026-07-01', 'end': '2026-07-31'},
+                    'transaction_count': int(edge_frame.n_tx.sum()),
+                    'seed_count': int(node_frame.is_seed.sum())},
+        'statistics': {'transaction_sum_kzt': float(edge_frame.sum_kzt.sum())},
+    }
+    with patch('backend.analysis_service.pd.read_parquet', side_effect=[node_frame, edge_frame]), \
+            patch('backend.analysis_service._sha256', side_effect=lambda path: hashes[path.stem]):
+        return AnalysisService(Path('test-fixture'), audit)
 
 
 def sample_service():

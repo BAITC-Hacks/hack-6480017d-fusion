@@ -54,9 +54,10 @@ export interface GraphNode {
   gid: Gid; role: Role; priority_score: number; cluster_id: number; is_seed: boolean;
   depth: number; truncated_by_depth: boolean; is_isolated: boolean;
 }
+export interface FlowEdge { src: Gid; dst: Gid; sum_kzt: number; n_tx: number }
 export interface GraphData {
   nodes: GraphNode[];
-  edges: { src: Gid; dst: Gid; sum_kzt: number; n_tx: number }[];
+  edges: FlowEdge[];
   total_nodes: number; returned_nodes: number; total_edges: number; returned_edges: number;
   truncated: boolean; scope: string;
 }
@@ -64,6 +65,10 @@ export interface NodeDetail extends GraphNode {
   role_score: number; evidence: string; in_deg: number; out_deg: number;
   in_kzt: number; out_kzt: number; in_tx: number; out_tx: number; pagerank: number;
   seed_reach: number; pass_through: number | null; ratio_usable: boolean; caveats: string[];
+  priority_rank: number; priority_total: number; priority_base: number; priority_why: string;
+  priority_pagerank: number; priority_turnover: number; priority_seed_reach: number;
+  priority_counterparties: number; priority_transactions: number; priority_factor: number;
+  incoming_edges: FlowEdge[]; outgoing_edges: FlowEdge[];
 }
 export type GraphScope = { gid: Gid } | { cluster_id: number };
 
@@ -116,10 +121,21 @@ export async function fetchNode(gid: Gid, signal: AbortSignal): Promise<NodeDeta
     !isScore(data.role_score) || typeof data.ratio_usable !== 'boolean' || typeof data.evidence !== 'string' ||
     !['in_deg', 'out_deg', 'in_kzt', 'out_kzt', 'in_tx', 'out_tx', 'pagerank', 'seed_reach', 'depth'].every(k => isFiniteNumber(data[k])) ||
     !(data.pass_through === null || isFiniteNumber(data.pass_through)) ||
-    !Array.isArray(data.caveats) || !data.caveats.every(c => typeof c === 'string')) {
+    !Array.isArray(data.caveats) || !data.caveats.every(c => typeof c === 'string') ||
+    !isCount(data.priority_rank) || !isCount(data.priority_total) || data.priority_rank < 1 || data.priority_rank > data.priority_total ||
+    typeof data.priority_why !== 'string' || !data.priority_why.trim() ||
+    !['priority_base', 'priority_pagerank', 'priority_turnover', 'priority_seed_reach',
+      'priority_counterparties', 'priority_transactions', 'priority_factor'].every(k => isFiniteNumber(data[k]) && data[k] >= 0 && data[k] <= 1 + 1e-9) ||
+    !Array.isArray(data.incoming_edges) || !data.incoming_edges.every(e => isFlow(e) && e.dst === gid) ||
+    !Array.isArray(data.outgoing_edges) || !data.outgoing_edges.every(e => isFlow(e) && e.src === gid)) {
     throw new Error('Неожиданный формат карточки участника.');
   }
   return data as unknown as NodeDetail;
+}
+
+function isFlow(value: unknown): value is FlowEdge {
+  return isRecord(value) && isGid(value.src) && isGid(value.dst) &&
+    isFiniteNumber(value.sum_kzt) && value.sum_kzt > 0 && isCount(value.n_tx) && value.n_tx > 0;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
