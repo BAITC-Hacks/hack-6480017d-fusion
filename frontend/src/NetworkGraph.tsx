@@ -22,7 +22,7 @@ export default function NetworkGraph({ graph, selected, colorBy, onSelect }: Pro
         ...graph.nodes.map((node, i) => ({
           data: {
             id: node.gid, label: shortGid(node.gid), roleColor: roleInfo[node.role].color,
-            clusterColor: clusterColor(node.cluster_id), size: 20 + node.priority_score * 42,
+            clusterColor: clusterColor(node.cluster_id), size: 16 + node.priority_score * 34,
             boundary: node.truncated_by_depth, seed: node.is_seed,
           },
           position: { x: 240 * Math.cos(i * 2 * Math.PI / graph.nodes.length), y: 240 * Math.sin(i * 2 * Math.PI / graph.nodes.length) },
@@ -35,28 +35,36 @@ export default function NetworkGraph({ graph, selected, colorBy, onSelect }: Pro
       style: [
         { selector: 'node', style: {
           'background-color': 'data(roleColor)', width: 'data(size)', height: 'data(size)',
-          label: 'data(label)', 'font-size': 10, color: '#607185', 'text-valign': 'bottom',
-          'text-margin-y': 7, 'text-background-color': '#f8fafb', 'text-background-opacity': 0.85,
+          label: 'data(label)', 'font-size': 10, color: '#a6b8ca', 'text-valign': 'bottom',
+          'text-margin-y': 7, 'text-background-color': '#0b151e', 'text-background-opacity': 0.85,
           'text-background-padding': '2px', 'min-zoomed-font-size': 8,
-          'border-width': 2, 'border-color': '#ffffff',
+          'border-width': 2, 'border-color': '#081018',
         } },
-        { selector: 'node[?seed]', style: { 'border-width': 3, 'border-color': '#22394e', 'border-style': 'double' } },
+        { selector: 'node[?seed]', style: { 'border-width': 3, 'border-color': '#a7c0d4', 'border-style': 'double' } },
         { selector: 'node[?boundary]', style: { shape: 'diamond' } },
         { selector: 'edge', style: {
-          width: 'data(weight)', 'line-color': '#b4c2cf', 'target-arrow-color': '#8a9bab',
-          'target-arrow-shape': 'triangle', 'curve-style': 'bezier', opacity: 0.6, 'arrow-scale': 0.8,
+          width: 'data(weight)', 'line-color': '#3d5870', 'target-arrow-color': '#68859e',
+          'target-arrow-shape': 'triangle', 'curve-style': 'bezier', opacity: 0.55, 'arrow-scale': 0.8,
         } },
-        { selector: '.selected', style: { 'border-color': '#132d44', 'border-width': 5, color: '#142b41', 'font-weight': 'bold', 'z-index': 10 } },
-        { selector: '.connected', style: { 'line-color': '#52788c', 'target-arrow-color': '#52788c', opacity: 1, 'z-index': 5 } },
+        { selector: 'node.neighbor', style: { 'border-color': '#6c9eae', 'border-width': 2, color: '#c3d2df' } },
+        { selector: 'node.selected', style: {
+          'border-color': '#edfaff', 'border-width': 4, color: '#edfaff', 'font-weight': 'bold',
+          'underlay-color': '#7ce7dc', 'underlay-opacity': 0.16, 'underlay-padding': 7, 'z-index': 10,
+        } },
+        { selector: 'edge.connected', style: { 'line-color': '#6c9eae', 'target-arrow-color': '#9bd6de', opacity: 0.9, 'z-index': 5 } },
       ],
       layout: { name: 'cose', animate: false, randomize: false, fit: true, padding: 48, nodeRepulsion: () => 16000, idealEdgeLength: () => 95, numIter: 500 },
       minZoom: 0.08, maxZoom: 4,
     });
     instance.current = cy;
     cy.on('tap', 'node', event => selectCallback.current(event.target.id()));
-    const observer = new ResizeObserver(() => { cy.resize(); });
+    let resizeFrame = 0;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => { cy.resize(); cy.fit(undefined, 48); });
+    });
     observer.observe(container.current);
-    return () => { observer.disconnect(); cy.destroy(); instance.current = null; };
+    return () => { observer.disconnect(); cancelAnimationFrame(resizeFrame); cy.destroy(); instance.current = null; };
   }, [graph]);
 
   useEffect(() => {
@@ -69,12 +77,15 @@ export default function NetworkGraph({ graph, selected, colorBy, onSelect }: Pro
   useEffect(() => {
     const cy = instance.current;
     if (!cy) return;
-    cy.elements().removeClass('selected connected');
-    if (selected) {
-      const node = cy.getElementById(selected);
-      node.addClass('selected');
-      node.connectedEdges().addClass('connected');
-    }
+    cy.batch(() => {
+      cy.elements().removeClass('selected connected neighbor');
+      if (selected) {
+        const node = cy.getElementById(selected);
+        node.neighborhood('node').addClass('neighbor');
+        node.addClass('selected');
+        node.connectedEdges().addClass('connected');
+      }
+    });
   }, [selected, graph]);
 
   function zoom(factor: number) {

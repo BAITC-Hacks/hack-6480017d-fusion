@@ -6,7 +6,8 @@ import './node-flows.css';
 type FlowEdge = GraphData['edges'][number];
 type Direction = 'incoming' | 'outgoing';
 interface Props { node: NodeDetail; onSelect: (gid: Gid) => void }
-const flowMoney = (value: number) => `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value)} ₸`;
+const amountFormat = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
+const flowMoney = (value: number) => `${amountFormat.format(value)} ₸`;
 
 function FlowDetails({ node, onSelect }: Props) {
   const [direction, setDirection] = useState<Direction>(node.incoming_edges.length > 0 ? 'incoming' : 'outgoing');
@@ -14,34 +15,31 @@ function FlowDetails({ node, onSelect }: Props) {
   const counterpart = (edge: FlowEdge) => incoming ? edge.src : edge.dst;
   // The API sorts full flows by amount and exact integer IDs; keep that order.
   const edges = incoming ? node.incoming_edges : node.outgoing_edges;
-  const counterparties = new Set(edges.map(counterpart).filter(gid => gid !== node.gid)).size;
-  const totalKzt = edges.reduce((sum, edge) => sum + edge.sum_kzt, 0);
+  const payers = new Set(node.incoming_edges.map(edge => edge.src).filter(gid => gid !== node.gid)).size;
+  const recipients = new Set(node.outgoing_edges.map(edge => edge.dst).filter(gid => gid !== node.gid)).size;
+  const receivedKzt = node.incoming_edges.reduce((sum, edge) => sum + edge.sum_kzt, 0);
+  const sentKzt = node.outgoing_edges.reduce((sum, edge) => sum + edge.sum_kzt, 0);
   const transactions = edges.reduce((sum, edge) => sum + edge.n_tx, 0);
   const hasSelfTransfer = edges.some(edge => edge.src === edge.dst);
   const isolated = node.incoming_edges.length === 0 && node.outgoing_edges.length === 0;
   const titleId = `flows-title-${node.gid}`;
 
-  return <details className="node-flows">
-    <summary>
-      <span className="node-flows-summary-title" id={titleId}>Денежные потоки участника</span>
-      <span className="node-flows-summary-count">{isolated ? 'Нет наблюдаемых связей' : `${count(node.incoming_edges.length)} входящих · ${count(node.outgoing_edges.length)} исходящих связей`}</span>
-    </summary>
+  return <section className="node-flows" aria-labelledby={titleId}>
+    <h3 id={titleId}>Потоки</h3>
     <div className="node-flows-body">
-      <p className="node-flows-subject">Выбранный ID <strong>{node.gid}</strong></p>
-      <p className="node-flows-scope">Все связи этого участника в наблюдаемой выгрузке. Ограничение графа в 250 узлов не сокращает этот список.</p>
+      <dl className="node-flows-totals">
+        <div><dt>Получено</dt><dd>{flowMoney(receivedKzt)}<span>Плательщиков: {count(payers)}</span></dd></div>
+        <div><dt>Отправлено</dt><dd>{flowMoney(sentKzt)}<span>Получателей: {count(recipients)}</span></dd></div>
+      </dl>
       <div className="node-flows-direction" role="group" aria-label="Направление денежных потоков">
         <button type="button" aria-pressed={incoming} onClick={() => setDirection('incoming')}>Входящие <span>{count(node.incoming_edges.length)}</span></button>
         <button type="button" aria-pressed={!incoming} onClick={() => setDirection('outgoing')}>Исходящие <span>{count(node.outgoing_edges.length)}</span></button>
       </div>
-      <dl className="node-flows-totals">
-        <div><dt>{incoming ? 'Получено в выгрузке' : 'Отправлено в выгрузке'}</dt><dd>{flowMoney(totalKzt)}</dd></div>
-        <div><dt>Переводов</dt><dd>{count(transactions)}</dd></div>
-        <div><dt>{incoming ? 'Плательщиков' : 'Получателей'}</dt><dd>{count(counterparties)}</dd></div>
-      </dl>
+      <p className="node-flows-direction-total">{incoming ? 'Отправитель → этот участник' : 'Этот участник → получатель'} · {count(transactions)} переводов</p>
       {edges.length > 0 ? <div className="node-flows-scroll" tabIndex={0} role="region" aria-label={`${incoming ? 'Входящие' : 'Исходящие'} переводы участника ${node.gid}`}>
         <table className="node-flows-table" aria-labelledby={titleId}>
-          <caption>{incoming ? 'Отправитель → выбранный участник' : 'Выбранный участник → получатель'}. Суммы по убыванию.</caption>
-          <thead><tr><th scope="col">{incoming ? 'Отправитель' : 'Получатель'}</th><th scope="col">Сумма, KZT</th><th scope="col">Переводов</th></tr></thead>
+          <caption>{incoming ? 'Входящие' : 'Исходящие'} переводы участника {node.gid}. Суммы по убыванию.</caption>
+          <thead><tr><th scope="col">{incoming ? 'ID отправителя' : 'ID получателя'}</th><th scope="col">Сумма</th><th scope="col" aria-label="Количество переводов">Опер.</th></tr></thead>
           <tbody>{edges.map(edge => <tr key={`${edge.src}:${edge.dst}`}>
             <td><button className="node-flow-gid" type="button" onClick={() => onSelect(counterpart(edge))} aria-label={`Открыть участника ${counterpart(edge)}, ${incoming ? 'отправитель' : 'получатель'}`}>{counterpart(edge)}</button>
               {edge.src === edge.dst && <span className="node-flow-self">Перевод самому себе</span>}</td>
@@ -51,16 +49,21 @@ function FlowDetails({ node, onSelect }: Props) {
       </div> : <p className="node-flows-empty" role="status">{isolated
         ? 'В выгрузке нет переводов этого участника. Он сохранён в графе и результатах; отсутствие связей не доказывает отсутствие активности.'
         : incoming ? 'Наблюдаемых входящих переводов нет. Проверьте исходящие связи и ограничения выборки.'
-          : node.truncated_by_depth ? 'Исходящие связи обрезаны границей наблюдения на глубине 4. Нельзя заключить, что деньги остались у участника.'
+          : node.truncated_by_depth ? 'Исходящие связи за границей наблюдения на глубине 4 неизвестны. Нельзя заключить, что деньги остались у участника.'
             : 'Наблюдаемых исходящих переводов нет. Это не подтверждает отсутствие переводов за пределами выборки.'}</p>}
       {hasSelfTransfer && <p className="node-flows-note">Перевод самому себе включён в суммы и число переводов, но не добавляет контрагента. Такая связь присутствует в обоих направлениях.</p>}
-      <p className="node-flows-note">Показаны агрегаты направленных пар за период выгрузки, только внутрибанковские переводы от 5 000 KZT. Это не полный баланс счёта.</p>
+      <details className="node-flows-limits">
+        <summary>Границы наблюдения</summary>
+        <p>Все связи участника в наблюдаемой выгрузке; лимит графа в 250 узлов не сокращает список. Показаны агрегаты направленных пар за период выгрузки, только внутрибанковские переводы от 5 000 KZT. Это не полный баланс счёта.</p>
+        {node.is_seed && <p>У исходных seed входящие связи могут быть неполными.</p>}
+        {node.truncated_by_depth && <p>Граница наблюдения на глубине 4: входящие и исходящие связи могут быть неполными. Отсутствие исходящих переводов не означает, что деньги остались у участника.</p>}
+      </details>
     </div>
-  </details>;
+  </section>;
 }
 
 export default function NodeFlows(props: Props) {
-  // Reset direction and disclosure on a different participant; never retain
+  // Reset direction on a different participant; never retain
   // another participant's flow list while the parent selection changes.
   return <FlowDetails key={props.node.gid} {...props} />;
 }
