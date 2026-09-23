@@ -48,7 +48,7 @@ def assert_valid_audit(report: dict[str, Any]) -> None:
         raise ValueError("Проверка данных не пройдена: " + "; ".join(failed))
 
 
-def audit_data(data_dir: Path = DEFAULT_DATA_DIR) -> dict[str, Any]:
+def audit_data(data_dir: Path = DEFAULT_DATA_DIR, *, enforce_case_period: bool = True) -> dict[str, Any]:
     """Read all three parquet files, validate values and derive actual summary.
 
     The returned summary has no IDs; any reported ID bounds are exact strings.
@@ -99,6 +99,9 @@ def audit_data(data_dir: Path = DEFAULT_DATA_DIR) -> dict[str, Any]:
 
     nodes, edges, tx = (frames[name] for name in ("nodes", "edges", "transactions"))
     dates = pd.to_datetime(tx["date"], errors="coerce")
+    if not dates.notna().all():
+        check("transactions: даты корректны", False)
+        return finish()
     summary = {
         "node_count": len(nodes), "edge_count": len(edges), "transaction_count": len(tx),
         "seed_count": int(nodes["is_seed"].sum()),
@@ -120,8 +123,8 @@ def audit_data(data_dir: Path = DEFAULT_DATA_DIR) -> dict[str, Any]:
     check("edges: depth в диапазоне 1–4", edges["depth"].between(1, 4).all())
     check("edges: n_tx положительные целые", edges["n_tx"].gt(0).all())
     check("transactions: порог >= 5000 KZT", tx["sum_kzt"].ge(5000).all())
-    check("transactions: даты в заявленном июле 2026",
-          dates.notna().all() and dates.between("2026-07-01", "2026-07-31").all(),
+    check("transactions: даты в заявленном июле 2026" if enforce_case_period else "transactions: даты корректны",
+          dates.notna().all() and (not enforce_case_period or dates.between("2026-07-01", "2026-07-31").all()),
           f"{summary['period']['start']} — {summary['period']['end']}; уникальных дат={dates.nunique()}")
     if any(not item["passed"] for item in report["checks"]):
         return finish()

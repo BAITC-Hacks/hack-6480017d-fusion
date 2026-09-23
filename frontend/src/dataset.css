@@ -1,0 +1,68 @@
+.dataset-open { display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; }
+.dataset-busy-dot { width: 6px; height: 6px; border-radius: 50%; background: #ffc56e; }
+.dataset-dialog { position: fixed; inset: 0; width: min(640px, calc(100% - 32px)); max-width: none; max-height: 85vh; max-height: 85dvh; margin: auto; padding: 0; border: 1px solid #294055; border-radius: 10px; background: #0b151e; color: #e8eef5; box-shadow: 0 24px 90px #000a; font-size: 12px; line-height: 1.65; overflow: hidden; overflow-wrap: anywhere; color-scheme: dark; }
+.dataset-dialog[open] { display: flex; flex-direction: column; }
+.dataset-dialog::backdrop { background: #02070cc7; }
+body:has(.dataset-dialog[open]) { overflow: hidden; }
+.dataset-dialog-header { display: flex; flex-shrink: 0; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 22px; border-bottom: 1px solid #1d2b3a; background: #101c28; }
+.dataset-dialog-header h2 { margin: 0; font-size: 20px; line-height: 1.3; font-weight: 650; color: #e8eef5; }
+.dataset-dialog-header p { margin: 5px 0 0; color: #8090a3; font-size: 12px; }
+.dataset-dialog button { border: 1px solid #30465a; border-radius: 5px; background: #172735; color: #c5d4e3; padding: 7px 10px; font-size: 12px; cursor: pointer; }
+.dataset-dialog button:hover { border-color: #4b728e; background: #203749; }
+.dataset-dialog button:disabled { opacity: .5; cursor: not-allowed; }
+.dataset-dialog button:focus-visible, .dataset-dialog input:focus-visible, .dataset-dialog summary:focus-visible, .dataset-open:focus-visible { outline: 2px solid #62c7ff; outline-offset: 3px; }
+.dataset-dialog .dataset-close { display: inline-flex; flex-shrink: 0; align-items: center; gap: 8px; }
+.dataset-close span { font-size: 20px; line-height: 1; }
+.dataset-dialog-body { min-height: 0; padding: 18px 22px 22px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #3a5064 #0b151e; }
+.dataset-dialog h3 { margin: 0; color: #c8d6e4; font-size: 12px; font-weight: 650; }
+.dataset-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dataset-dialog .dataset-text-button { border: 0; background: transparent; color: #62c7ff; padding: 3px 0; font-size: 11px; }
+.dataset-current { padding-bottom: 18px; border-bottom: 1px solid #1d2b3a; }
+.dataset-current-name { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 10px; }
+.dataset-current-name strong { min-width: 0; font-size: 13px; font-weight: 550; }
+.dataset-current-name span { border: 1px solid #284258; border-radius: 4px; background: #132638; color: #87ccee; padding: 0 6px; font-size: 10px; }
+.dataset-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+.dataset-stats > div { min-width: 0; padding: 9px; border: 1px solid #203244; border-radius: 7px; background: #0f1c27; }
+.dataset-stats dt { color: #8090a3; font-size: 10px; }
+.dataset-stats dd { margin: 3px 0 0; color: #e8eef5; font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.dataset-meta { margin: 3px 0 0; color: #8090a3; font-size: 10px; }
+.dataset-id { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.dataset-upload { padding-top: 18px; }
+.dataset-note { margin: 7px 0 0; color: #8090a3; font-size: 11px; }
+.dataset-picker-label { display: block; margin: 13px 0 6px; color: #b9cadb; font-size: 12px; }
+.dataset-picker { display: block; width: 100%; min-width: 0; max-width: 100%; padding: 8px; border: 1px dashed #37516a; border-radius: 6px; background: #101c28; color: #a9b8c9; font-size: 11px; box-sizing: border-box; }
+.dataset-picker::file-selector-button { max-width: 100%; margin-right: 10px; padding: 7px 9px; border: 1px solid #30465a; border-radius: 4px; background: #172735; color: #c5d4e3; cursor: pointer; }
+.dataset-file-list { list-style: none; padding: 0; margin: 10px 0 0; }
+.dataset-file-list li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 5px 0; border-bottom: 1px solid #1d2b3a; color: #b9cadb; font-size: 11px; }
+.dataset-file-list li span:first-child { min-width: 0; }
+.dataset-file-list li span:last-child { flex-shrink: 0; color: #8090a3; font-size: 10px; }
+.dataset-validation { margin: 8px 0 0; color: #e1c28d; font-size: 11px; }
+.dataset-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.dataset-dialog .dataset-primary { border-color: #2d5d7d; background: #153249; color: #bdeaff; }
+.dataset-dialog .dataset-primary:hover { border-color: #3b82aa; background: #1b425d; color: #e8f7ff; }
+.dataset-progress, .dataset-success, .dataset-error, .dataset-read-error { margin: 12px 0 0; padding: 9px 11px; border: 1px solid #284258; border-radius: 5px; background: #122635; color: #9dd7f5; font-size: 11px; }
+.dataset-success { border-color: #295240; background: #12291f; color: #91dfb2; }
+.dataset-error { border-color: #66383d; background: #2b1b21; color: #ffb0a7; }
+.dataset-read-error { border-color: #5a4727; background: #282218; color: #e1c28d; }
+.dataset-schema { margin-top: 18px; padding-top: 13px; border-top: 1px solid #1d2b3a; color: #a9b8c9; font-size: 11px; }
+.dataset-schema summary { color: #87ccee; cursor: pointer; }
+.dataset-schema dl { margin: 10px 0; }
+.dataset-schema dl > div + div { margin-top: 10px; }
+.dataset-schema dt { color: #c5d4e3; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.dataset-schema dd { margin: 3px 0 0; }
+.dataset-schema code { color: #a7d6f1; font-size: 11px; }
+.dataset-schema p { margin: 8px 0 0; }
+.dataset-scope { margin: 16px 0 0; padding-top: 12px; border-top: 1px solid #1d2b3a; color: #8090a3; font-size: 10px; }
+@media (max-width: 480px) {
+  .dataset-dialog { width: calc(100% - 20px); max-height: 90vh; max-height: 90dvh; }
+  .dataset-dialog-header { padding: 15px; gap: 10px; }
+  .dataset-dialog-header h2 { font-size: 18px; }
+  .dataset-dialog-header p { font-size: 11px; }
+  .dataset-dialog-body { padding: 15px; }
+  .dataset-dialog .dataset-close { padding: 6px 8px; font-size: 11px; }
+  .dataset-stats { gap: 6px; }
+  .dataset-stats > div { padding: 7px; }
+  .dataset-stats dd { font-size: 14px; }
+  .dataset-actions { flex-direction: column; }
+  .dataset-actions button { width: 100%; }
+}

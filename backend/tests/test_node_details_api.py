@@ -157,7 +157,8 @@ class RealNodeDetailsAPITests(unittest.TestCase):
         edges = pd.read_parquet(DEFAULT_DATA_DIR / 'edges.parquet')
         counts = pd.concat([edges.src, edges.dst]).value_counts()
         gid = str(counts.idxmax())
-        with TestClient(create_app(ai_settings=AISettings())) as client:
+        with (tempfile.TemporaryDirectory() as store,
+              TestClient(create_app(ai_settings=AISettings(), dataset_store_dir=Path(store))) as client):
             graph = client.get('/api/graph', params={'gid': gid, 'limit': 1}).json()
             node = client.get('/api/nodes/' + gid).json()
             self.assertTrue(graph['truncated'])

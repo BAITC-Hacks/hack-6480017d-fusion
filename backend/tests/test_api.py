@@ -8,6 +8,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from fastapi.testclient import TestClient
 
+from backend.ai_config import AISettings
 from backend.app import create_app
 from backend.audit import DEFAULT_DATA_DIR, EXPECTED_TYPES
 
@@ -38,7 +39,7 @@ class APITests(unittest.TestCase):
     def test_summary_uses_selected_dataset_including_isolated_seed(self):
         with tempfile.TemporaryDirectory() as directory:
             write_small_dataset(Path(directory))
-            with TestClient(create_app(Path(directory))) as client:
+            with TestClient(create_app(Path(directory), ai_settings=AISettings())) as client:
                 response = client.get("/api/summary")
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.json(), {
@@ -51,7 +52,8 @@ class APITests(unittest.TestCase):
         edges = pd.read_parquet(DEFAULT_DATA_DIR / "edges.parquet")
         tx = pd.read_parquet(DEFAULT_DATA_DIR / "transactions.parquet")
         dates = pd.to_datetime(tx["date"])
-        with TestClient(create_app()) as client:
+        with (tempfile.TemporaryDirectory() as store,
+              TestClient(create_app(ai_settings=AISettings(), dataset_store_dir=Path(store))) as client):
             self.assertEqual(client.get("/api/health").json(), {"status": "ok", "service": "Fusion"})
             response = client.get("/api/summary")
             self.assertEqual(response.status_code, 200)
@@ -64,7 +66,7 @@ class APITests(unittest.TestCase):
     def test_missing_data_is_explicit_503_but_process_is_alive(self):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertLogs("backend.app", level="ERROR"):
-                with TestClient(create_app(Path(directory))) as client:
+                with TestClient(create_app(Path(directory), ai_settings=AISettings())) as client:
                     self.assertEqual(client.get("/api/health").status_code, 200)
                     self.assertEqual(client.get("/api/summary").status_code, 503)
 
@@ -72,7 +74,7 @@ class APITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             write_small_dataset(Path(directory), edge_amount=6000.0)
             with self.assertLogs("backend.app", level="ERROR"):
-                with TestClient(create_app(Path(directory))) as client:
+                with TestClient(create_app(Path(directory), ai_settings=AISettings())) as client:
                     self.assertEqual(client.get("/api/health").status_code, 200)
                     response = client.get("/api/summary")
                     self.assertEqual(response.status_code, 503)

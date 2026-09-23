@@ -10,6 +10,7 @@ from unittest.mock import patch
 import pandas as pd
 from fastapi.testclient import TestClient
 
+from backend.ai_config import AISettings
 from backend.app import create_app
 from backend.audit import DEFAULT_DATA_DIR
 from backend.pipeline import run_pipeline
@@ -21,7 +22,7 @@ class SmallAnalysisAPITests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.directory = Path(self.temporary.name)
         write_small_dataset(self.directory)
-        self.context = TestClient(create_app(self.directory))
+        self.context = TestClient(create_app(self.directory, ai_settings=AISettings()))
         self.client = self.context.__enter__()
         self.source, self.target, self.isolated = (str(2**53 + offset) for offset in (1, 2, 3))
 
@@ -113,7 +114,7 @@ class AnalysisFailureTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             write_small_dataset(Path(directory), edge_amount=6000)
             with self.assertLogs('backend.app', level='ERROR'):
-                with TestClient(create_app(Path(directory))) as client:
+                with TestClient(create_app(Path(directory), ai_settings=AISettings())) as client:
                     for route in ('/api/analysis', '/api/graph', '/api/nodes/123', '/api/exports/nodes_roles.csv'):
                         self.assertEqual(client.get(route).status_code, 503)
                     self.assertEqual(client.get('/api/health').status_code, 200)
@@ -124,7 +125,7 @@ class AnalysisFailureTests(unittest.TestCase):
             write_small_dataset(Path(directory))
             with patch('backend.analysis_service.calculate', side_effect=ValueError('calculation failed')):
                 with self.assertLogs('backend.app', level='ERROR'):
-                    with TestClient(create_app(Path(directory))) as client:
+                    with TestClient(create_app(Path(directory), ai_settings=AISettings())) as client:
                         self.assertEqual(client.get('/api/health').status_code, 200)
                         self.assertEqual(client.get('/api/summary').status_code, 200)
                         self.assertEqual(client.get('/api/analysis').status_code, 503)
@@ -133,7 +134,9 @@ class AnalysisFailureTests(unittest.TestCase):
 class ActualDataAnalysisTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.context = TestClient(create_app())
+        cls.store = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls.store.cleanup)
+        cls.context = TestClient(create_app(ai_settings=AISettings(), dataset_store_dir=Path(cls.store.name)))
         cls.client = cls.context.__enter__()
 
     @classmethod

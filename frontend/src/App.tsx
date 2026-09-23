@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import {
   fetchAnalysis, fetchGraph, fetchHealth, fetchNode,
   type Analysis, type Gid, type GraphData, type GraphScope, type NodeDetail, type Role,
@@ -8,6 +8,7 @@ import AiPanel from './AiPanel';
 import NodeFlows from './NodeFlows';
 import PriorityExplanation from './PriorityExplanation';
 import ClusterSummary from './ClusterSummary';
+import DatasetPanel from './DatasetPanel';
 import { clusterColor, count, money, roleInfo, score } from './presentation';
 
 type Focus = { gid: Gid; showNeighbors: boolean; attempt: number };
@@ -15,6 +16,8 @@ const errorMessage = (error: unknown) => error instanceof Error ? error.message 
 const dateFormat = new Intl.DateTimeFormat('ru-RU', { timeZone: 'UTC' });
 const displayDate = (date: string) => dateFormat.format(new Date(`${date}T00:00:00Z`));
 const colorStyle = (color: string) => ({ '--role-color': color } as CSSProperties);
+const compactMoney = (value: number) => value < 1_000_000 ? money(value)
+  : `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format(value / 1_000_000)} млн ₸`;
 
 function RoleBadge({ role }: { role: Role }) {
   return <span className="role-badge" style={colorStyle(roleInfo[role].color)}>{roleInfo[role].label}</span>;
@@ -37,6 +40,11 @@ export default function App() {
   const [search, setSearch] = useState('');
   const [searchError, setSearchError] = useState('');
   const [colorBy, setColorBy] = useState<'role' | 'cluster'>('role');
+  const reloadDataset = useCallback(() => {
+    setSearch('');
+    setSearchError('');
+    setAttempt(value => value + 1);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -146,12 +154,13 @@ export default function App() {
         <button type="submit">Найти</button>
         {searchError && <p id="search-error" className="inline-error" role="alert">{searchError}</p>}
       </form>
+      <DatasetPanel onChanged={reloadDataset} />
       {analysis && <details className="export-menu">
         <summary>Экспорт CSV <span aria-hidden="true">↓</span></summary>
         <nav className="export-actions" aria-label="Скачать полные результаты">
           <a href="/api/exports/nodes_roles.csv" download>Все участники ↓</a>
           <a href="/api/exports/clusters.csv" download>Кластеры ↓</a>
-          <a href="/api/exports/top_nodes.csv" download>Топ-20 ↓</a>
+          <a href="/api/exports/top_nodes.csv" download>Топ-{analysis.top_nodes.length} ↓</a>
         </nav>
       </details>}
     </header>
@@ -188,7 +197,7 @@ export default function App() {
             <div><dt>Транзакции</dt><dd>{count(analysis.transactions)}</dd></div>
             <div><dt>Seed</dt><dd>{count(analysis.seed_nodes)}</dd></div>
             <div><dt>Кластеры</dt><dd>{count(analysis.clusters_count)}</dd></div>
-            <div title={money(analysis.total_kzt)}><dt>Оборот</dt><dd>{new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format(analysis.total_kzt / 1_000_000)} млн ₸</dd></div>
+            <div title={money(analysis.total_kzt)}><dt>Оборот</dt><dd>{compactMoney(analysis.total_kzt)}</dd></div>
           </dl>
           <div className="graph-toolbar">
             <label><span className="sr-only">Область графа</span><select aria-label="Область графа" value={scope && 'cluster_id' in scope ? String(scope.cluster_id) : 'node'} onChange={event => changeScope(event.target.value)}>
