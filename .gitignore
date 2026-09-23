@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+.env.*
+!.env.example
+frontend/node_modules/
+frontend/dist/
+*.tsbuildinfo
+.DS_Store
+artifacts/*
+!artifacts/.gitkeep
+# Исходные локальные данные не публикуются вместе с кодом.
+data/*.parquet

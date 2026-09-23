@@ -1,0 +1,1 @@
+"""Локальный backend Fusion."""

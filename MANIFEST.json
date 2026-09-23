@@ -1,0 +1,20 @@
+{
+  ".env.example": "66c3deeb7627480845f42f590414ba184d385b1b0121210a15651bbe0c1e8843",
+  ".gitignore": "42f20f2173247050e61730b63242dfef669f0d9c957e61ac3753116e96a90190",
+  "AGENTS.md": "ea206d35813230dedbaeac0b9363581432a9aed5cdcaf80a57f549e40487e141",
+  "README.md": "13b146bb18a8beba322180aeefeae095c8741aa36d6c828226c1ed95f6f0b026",
+  "START_HERE.md": "b8d6d7e417226d0b1cdee58d844c4036672f3647383878819eee4bd3e83bd658",
+  "data/edges.parquet": "4e71dde5cd3115bcb26e91202665532ee6581cf8233a9fc8059ea59fb7358a38",
+  "data/nodes.parquet": "d2a45b0df6e9352832d5fb09839d10b9e23f898156c3bab263b051b31cc0296d",
+  "data/transactions.parquet": "c30c5317b5439591dde86f2058dc47a3d19b2900c055ded994fe547f6fb7e7da",
+  "docs/AI_DESIGN.md": "31c97f029c85a1eeded3ef2dc9646392f65516a9c71655976b5066a3631192b5",
+  "docs/DATA_NOTES.md": "d1083ca728db2feac5ba4a1bef19d5bf82006a8f5d63a76904a7886258985be7",
+  "docs/PLAN.md": "3c8db8625d6390eab1b595d41ce8cb25eeda6ff5971e580724e5d6d034226c85",
+  "docs/case.md": "44df6513b2f1111bf31aad194a8f99f746dd9f5d0e26cb4e66feb5d351375479",
+  "docs/dataset.md": "b75c54a5b2e653c21bc0fb87a7d422ee590daf4d380d224abbb4fa6d393df26e",
+  "prompts/01_START.md": "09bb7ba98305de00a1b8127ca8bcd4deb13a0cc06dee0a59acd1b8275ecddcb9",
+  "prompts/UPDATE_TWO_PROVIDERS.md": "1856d97ad73e61420b8961266fff7a916d567e0632230067af45c1b3c6ed88df",
+  "starter/README.md": "7e7024ab0ff98cb435a291112c55ece7f09a2c640490cd218a343b0c8a3d5a3c",
+  "starter/requirements.txt": "ea287c15a50d9d30b0bac2eacf3f29f8515b0107e27597b9b6efa10bf6cd47a9",
+  "starter/starter.py": "21a16355f8c6a7f19f6ab29163ab864638bdea20c55ae52262c591f93b95ee46"
+}
