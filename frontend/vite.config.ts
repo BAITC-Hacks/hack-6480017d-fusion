@@ -7,6 +7,7 @@ const proxy = {
 
 export default defineConfig({
   plugins: [react()],
+  build: { rollupOptions: { output: { manualChunks: { graph: ['cytoscape'] } } } },
   server: { host: '127.0.0.1', port: 5173, strictPort: true, proxy },
   preview: { host: '127.0.0.1', port: 4173, strictPort: true, proxy },
 });
