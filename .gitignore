@@ -11,8 +11,6 @@ frontend/dist/
 .DS_Store
 artifacts/*
 !artifacts/.gitkeep
-# Исходные локальные данные не публикуются вместе с кодом.
-data/*.parquet
 
 # Local uploaded datasets and active selection.
 .fusion/
